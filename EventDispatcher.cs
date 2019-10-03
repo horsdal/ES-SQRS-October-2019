@@ -34,10 +34,4 @@ namespace PlayerDemo
                 @event.Apply(agg);
         }
     }
-
-    public class AggregateBase
-    {
-        public string StreamId { get; set; }
-        public int Version { get; set; }
-    }
 }

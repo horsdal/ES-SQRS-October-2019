@@ -17,19 +17,22 @@ namespace PlayerDemo
         public async Task<TAggregate> Fetch<TAggregate>(string streamId) where TAggregate : AggregateBase, new()
         {
             var eventSlice = await _conn.ReadStreamEventsForwardAsync(streamId, 0, 100, resolveLinkTos: false);
-            var player = new TAggregate() { StreamId = streamId };
+            var agg = new TAggregate() { StreamId = streamId };
             foreach (var ev in eventSlice.Events)
             {
                 var eventType = Type.GetType(ev.Event.EventType);
                 var eventJson = Encoding.UTF8.GetString(ev.Event.Data);
                 var @event = JsonConvert.DeserializeObject(eventJson, eventType) as IEvent<TAggregate>;
                 if (@event is object)
-                    @event.Apply(player);
+                {
+                    @event.Apply(agg);
+                    agg.Version++;
+                }
                 else
                     Console.WriteLine("🤯 😱");
             }
 
-            return player;
+            return agg;
         }
     }
 }

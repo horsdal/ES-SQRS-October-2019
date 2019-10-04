@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using EventStore.ClientAPI;
+using MediatR;
 using Newtonsoft.Json;
 
 namespace PlayerDemo
@@ -10,10 +11,12 @@ namespace PlayerDemo
     public class EventDispatcher
     {
         private readonly IEventStoreConnection _conn;
+        private readonly IMediator _bus;
 
-        public EventDispatcher(IEventStoreConnection conn)
+        public EventDispatcher(IEventStoreConnection conn, IMediator bus)
         {
             _conn = conn;
+            _bus = bus;
         }
 
         public async Task RaiseEvent<TAggregate>(TAggregate agg, params IEvent<TAggregate>[] events)  where TAggregate : AggregateBase
@@ -31,7 +34,10 @@ namespace PlayerDemo
                 )));
 
             foreach (var @event in events)
+            {
                 @event.Apply(agg);
+                await _bus.Publish(@event);
+            }
         }
     }
 }

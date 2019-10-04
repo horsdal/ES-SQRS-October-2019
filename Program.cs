@@ -1,6 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using EventStore.ClientAPI;
+using MediatR;
+using Microsoft.Extensions.DependencyInjection;
 using PlayerDemo.Player;
 
 namespace PlayerDemo
@@ -24,15 +29,26 @@ namespace PlayerDemo
             using var conn = EventStoreConnection.Create(new Uri("tcp://admin:changeit@localhost:1113"));
             await conn.ConnectAsync();
 
-            var dispatcher = new EventDispatcher(conn);
+            var service = new ServiceCollection()
+                .AddMediatR(Assembly.GetAssembly(typeof(Program)))
+                .BuildServiceProvider();
+            var bus = new MediatR.Mediator(type => service.GetService(type));
+            var dispatcher = new EventDispatcher(conn, bus);
+
+            var repo= new AggregateRepository(conn);
+            var handler = new CreatePlayerCommandHandler(repo, dispatcher);
 
             var id = Guid.NewGuid();
-            var player = new PlayerAggregate(){ StreamId = $@"Player-{id}" };
+            var streamId = $@"Player-{id}";
+            var cmd = new CreatePlayerCommand(streamId, id);
+            await handler.Handle(cmd);
+
+
+            var player = await repo.Fetch<PlayerAggregate>(streamId);
 
             await dispatcher.RaiseEvent(player,
-                new PlayerCreatedEvent { Id = id },
-                new NicknameAddedEvent {Nickname = "Chr"},
-                new AddressAddedEvent {HomeAddress = new Address {HomeAddress = "Sandøgade 4, 8200 Aarhus N"}});
+                new NicknameAddedEvent {Nickname = "Chr", StreamId = player.StreamId},
+                new AddressAddedEvent {HomeAddress = new Address {HomeAddress = "Sandøgade 4, 8200 Aarhus N"}, StreamId = player.StreamId});
 
             return player.Id;
         }
